@@ -12,7 +12,9 @@ export default async function SkiPage({ params }: Props) {
   const { slug } = await Promise.resolve(params);
 
   const ski =
-    SKIS.find((s) => skiSlug(s.brand, s.model, s.season) === slug) ?? null;
+    SKIS.find(
+      (s) => s.id === slug || skiSlug(s.brand, s.model, s.season) === slug
+    ) ?? null;
 
   if (!ski) {
     notFound();
@@ -141,7 +143,7 @@ export default async function SkiPage({ params }: Props) {
       </div>
 
       <div className="flex gap-3">
-        <Link href={`/katalog/${ski.season}`} className="rounded-md border px-4 py-2">
+        <Link href={`/catalog/${ski.season}`} className="rounded-md border px-4 py-2">
           Tilbake til katalog
         </Link>
         <Link href="/quiz" className="rounded-md bg-black px-4 py-2 text-white">

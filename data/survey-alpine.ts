@@ -1,156 +1,96 @@
-// data/survey-alpine.ts
+export type AlpineAnswerValue = string;
 
-export type AlpineDesignPreference = "womens" | "any" | "junior";
-export type AlpineSkillLevel =
-  | "beginner"
-  | "intermediate"
-  | "advanced"
-  | "expert"
-  | "svindal";
-export type AlpineTerrain =
-  | "piste_only"
-  | "mostly_piste_some_pow"
-  | "mostly_pow_some_piste"
-  | "pow_only";
-export type AlpineSpeed = "relaxed" | "medium" | "fast";
-export type AlpineTurnRadius =
-  | "short"
-  | "mostly_short"
-  | "mostly_long"
-  | "long";
-
-export type AlpineAbout = {
-  name?: string;
-  age?: number;
-  heightCm?: number;
-  weightKg?: number;
-};
-
-export type AlpineAnswers = {
-  design: AlpineDesignPreference;
-  skill: AlpineSkillLevel;
-  terrain: AlpineTerrain;
-  speed: AlpineSpeed;
-  turns: AlpineTurnRadius;
-  about: AlpineAbout;
-};
-
-export type SurveyOption<T extends string> = {
-  value: T;
+export type AlpineOption = {
+  value: AlpineAnswerValue;
   label: string;
+  description?: string; // kun for nivå
 };
 
-export type SurveyQuestionBase = {
-  id: string;
+export type AlpineQuestion = {
+  id: "design" | "level" | "terrain" | "style" | "turns";
   title: string;
-  description?: string;
+  subtitle?: string;
+  options: AlpineOption[];
 };
 
-export type SingleSelectQuestion<T extends string> = SurveyQuestionBase & {
-  type: "single";
-  options: SurveyOption<T>[];
-};
-
-export type AboutQuestion = SurveyQuestionBase & {
-  type: "about";
-  fields: Array<
-    | { key: "name"; label: string; placeholder?: string; optional?: boolean }
-    | {
-        key: "age" | "heightCm" | "weightKg";
-        label: string;
-        placeholder?: string;
-        optional?: boolean;
-        min?: number;
-        max?: number;
-      }
-  >;
-};
-
-export type AlpineQuestion =
-  | SingleSelectQuestion<AlpineDesignPreference>
-  | SingleSelectQuestion<AlpineSkillLevel>
-  | SingleSelectQuestion<AlpineTerrain>
-  | SingleSelectQuestion<AlpineSpeed>
-  | SingleSelectQuestion<AlpineTurnRadius>
-  | AboutQuestion;
-
-export const ALPINE_QUESTIONS: AlpineQuestion[] = [
+export const ALPINE_SURVEY_V1: AlpineQuestion[] = [
   {
     id: "design",
-    type: "single",
     title: "Hvilket design foretrekker du?",
-    description:
-      "Dette påvirker kun hvilke modeller du får se – ikke hvordan skiene fungerer.",
+    subtitle: "Velg det som passer best.",
     options: [
-      { value: "womens", label: "Damemodeller" },
-      { value: "any", label: "Alle design (ingen preferanse)" },
+      { value: "all", label: "Alle design" },
+      { value: "women", label: "Dame" },
+      { value: "men", label: "Herre" },
       { value: "junior", label: "Junior" },
     ],
   },
   {
-    id: "skill",
-    type: "single",
-    title: "Hvordan vil du beskrive nivået ditt på alpint?",
+    id: "level",
+    title: "Hvor god er du på ski?",
+    subtitle: "Velg det nivået som passer best.",
     options: [
-      { value: "beginner", label: "Nybegynner" },
-      { value: "intermediate", label: "Viderekommen" },
-      { value: "advanced", label: "Avansert" },
-      { value: "expert", label: "Ekspert" },
-      { value: "svindal", label: "Jeg er Aksel Lund Svindal 😎" },
+      {
+        value: "beginner",
+        label: "Nybegynner",
+        description:
+          "Ny eller lite erfaring. Du kan svinge og stoppe, men føler deg usikker i fart.",
+      },
+      {
+        value: "intermediate",
+        label: "Middels",
+        description:
+          "Trives i blå og røde bakker. Parallelle svinger i moderat tempo og god kontroll.",
+      },
+      {
+        value: "advanced",
+        label: "Avansert",
+        description:
+          "Komfortabel i røde og svarte bakker. God teknikk, liker fart og krevende forhold.",
+      },
+      {
+        value: "expert",
+        label: "Ekspert",
+        description:
+          "Behersker alt terreng og føre. Høy fart og bratt er ikke et problem.",
+      },
+      {
+        value: "svindal",
+        label: "Mitt navn er Aksel Lund Svindal",
+        description: "Du trenger egentlig ikke hjelp, men vi later som.",
+      },
     ],
   },
   {
     id: "terrain",
-    type: "single",
-    title: "Hvor på fjellet kjører du mest?",
+    title: "Hvor på fjellet skal skiene brukes mest?",
+    subtitle: "Velg det som passer best.",
     options: [
-      { value: "piste_only", label: "Bare i bakken" },
-      { value: "mostly_piste_some_pow", label: "Mest i bakken, men litt pudder" },
-      { value: "mostly_pow_some_piste", label: "Mest i pudder, men litt i bakken" },
-      { value: "pow_only", label: "Bare i pudder" },
+      { value: "piste_only", label: "Preparert bakke" },
+      { value: "mostly_piste_some_pow", label: "Mest i bakke – men litt pudder" },
+      { value: "mostly_pow_some_piste", label: "Mest i pudder – men litt bakke" },
+      { value: "pow_only", label: "Bare pudder" },
     ],
   },
   {
-    id: "speed",
-    type: "single",
-    title: "Hvilken fart trives du best i?",
+    id: "style",
+    title: "Hvordan er din kjørestil?",
+    subtitle: "Velg det som passer best.",
     options: [
       { value: "relaxed", label: "Avslappet" },
-      { value: "medium", label: "Middels" },
-      { value: "fast", label: "Rask" },
+      { value: "balanced", label: "Midt i mellom" },
+      { value: "hard", label: "Kjører så hardt det går" },
     ],
   },
   {
     id: "turns",
-    type: "single",
-    title: "Hvilken type svinger liker du best?",
+    title: "Hvordan foretrekker du svingene?",
+    subtitle: "Velg det som passer best.",
     options: [
-      { value: "short", label: "Korte svinger" },
-      { value: "mostly_short", label: "Mest korte svinger" },
-      { value: "mostly_long", label: "Mest lange svinger" },
-      { value: "long", label: "Lange svinger" },
-    ],
-  },
-  {
-    id: "about",
-    type: "about",
-    title: "Fortell oss litt om deg",
-    description:
-      "Valgfritt, men hjelper oss å foreslå bedre skilengde og mer presise anbefalinger.",
-    fields: [
-      { key: "name", label: "Navn", placeholder: "Valgfritt", optional: true },
-      { key: "age", label: "Alder (år)", placeholder: "F.eks. 24", optional: true, min: 3, max: 99 },
-      { key: "heightCm", label: "Høyde (cm)", placeholder: "F.eks. 182", optional: true, min: 80, max: 230 },
-      { key: "weightKg", label: "Vekt (kg)", placeholder: "F.eks. 85", optional: true, min: 15, max: 200 },
+      { value: "short", label: "Korte" },
+      { value: "mostly_short", label: "Mest korte" },
+      { value: "mostly_long", label: "Mest lange" },
+      { value: "long", label: "Lange" },
     ],
   },
 ];
-
-export const DEFAULT_ALPINE_ANSWERS: AlpineAnswers = {
-  design: "any",
-  skill: "intermediate",
-  terrain: "mostly_piste_some_pow",
-  speed: "medium",
-  turns: "mostly_long",
-  about: {},
-};

@@ -29,7 +29,7 @@ export default function QuizPage() {
     } catch {}
 
     // ✅ direkte videre – ingen "perfekt"-steg
-    router.push(`/sporreundersokelse/alpin?type=${type}`);
+    router.push(`/survey/alpine?type=${type}`);
   }
 
   function goNordic(type: NordicType) {
@@ -40,7 +40,7 @@ export default function QuizPage() {
       );
     } catch {}
 
-    router.push(`/sporreundersokelse/langrenn?type=${type}`);
+    router.push(`/survey/cross-country?type=${type}`);
   }
 
   return (

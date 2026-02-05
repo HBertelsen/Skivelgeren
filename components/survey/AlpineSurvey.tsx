@@ -1,265 +1,130 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  ALPINE_QUESTIONS,
-  AlpineAnswers,
-  AlpineQuestion,
-} from "../../data/survey-alpine";
+import React from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ALPINE_SURVEY_V1, type AlpineQuestion } from "@/data/survey-alpine";
 
-const LS_KEY = "skivelgeren_alpine_answers_v1";
+const STORAGE_KEY = "skivelgeren_quiz_v1";
 
-// Starter uten forhåndsvalg
-const EMPTY_ALPINE_ANSWERS: AlpineAnswers = {
-  // @ts-expect-error – fylles etter hvert, men starter tomt for UX
-  design: undefined,
-  // @ts-expect-error
-  skill: undefined,
-  // @ts-expect-error
-  terrain: undefined,
-  // @ts-expect-error
-  speed: undefined,
-  // @ts-expect-error
-  turns: undefined,
-  about: {},
-};
+function safeReadStorage(): any {
+  try {
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "{}") ?? {};
+  } catch {
+    return {};
+  }
+}
 
-function clampNum(x: number, min?: number, max?: number) {
-  if (Number.isNaN(x)) return undefined;
-  if (min != null && x < min) return min;
-  if (max != null && x > max) return max;
-  return x;
+function safeWriteStorage(next: any) {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {}
 }
 
 export default function AlpineSurvey() {
   const router = useRouter();
+  const params = useSearchParams();
+  const type = params.get("type"); // kommer fra AlpineTypePage
+  const [step, setStep] = React.useState(0);
 
-  const questions = useMemo(() => ALPINE_QUESTIONS, []);
-  const total = questions.length;
+  const q: AlpineQuestion | undefined = ALPINE_SURVEY_V1[step];
 
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<AlpineAnswers>(EMPTY_ALPINE_ANSWERS);
+  // Sørg for at discipline/type finnes i storage (uten å endre design/flyt)
+  React.useEffect(() => {
+    const existing = safeReadStorage();
 
-  // ✅ Draft-strings for inputfeltene (så vi kan skrive fritt uten clamping)
-  const [aboutDraft, setAboutDraft] = useState<Record<string, string>>({});
+    const merged = {
+      ...existing,
+      discipline: existing.discipline ?? "alpin",
+      ...(type ? { type } : {}),
+    };
 
-  // ✅ Nullstill hver gang du kommer inn i surveyen (ingen forhåndsmarkering)
-  useEffect(() => {
-    setStep(0);
-    setAnswers(EMPTY_ALPINE_ANSWERS);
-    setAboutDraft({});
-    try {
-      localStorage.removeItem(LS_KEY);
-    } catch {
-      // ignore
-    }
-  }, []);
+    // normaliser svindal hvis den allerede skulle ligge der
+    if (merged.level === "svindal") merged.level = "expert";
 
-  // ✅ lagre underveis (valgfritt)
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(answers));
-    } catch {
-      // ignore
-    }
-  }, [answers]);
+    safeWriteStorage(merged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type]);
 
-  const q = questions[step] as AlpineQuestion;
+  function choose(questionId: AlpineQuestion["id"], value: string) {
+  const existing = safeReadStorage();
 
-  function goBack() {
-    if (step <= 0) {
-      router.back();
-      return;
-    }
-    setStep((s) => s - 1);
+  // 🚀 Svindal = hopp direkte til FIS
+  if (questionId === "level" && value === "svindal") {
+  safeWriteStorage({
+    ...existing,
+    level: 5,
+    directSkiId: "head-wcr-e-gs-rebel-fis-25-26",
+  });
+
+  router.push("/results");
+  return;
+}
+
+  const normalizedValue =
+    questionId === "level" && value === "svindal" ? "expert" : value;
+
+  safeWriteStorage({
+    ...existing,
+    [questionId]: normalizedValue,
+  });
+
+  const nextStep = step + 1;
+  if (nextStep < ALPINE_SURVEY_V1.length) {
+    setStep(nextStep);
+  } else {
+    router.push("/results");
+  }
+}
+
+  function back() {
+    if (step === 0) router.back();
+    else setStep((s) => Math.max(0, s - 1));
   }
 
-  function finish(nextAnswers?: AlpineAnswers) {
-    const payload = nextAnswers ?? answers;
-    try {
-      sessionStorage.setItem(
-        "skivelgeren_alpine_answers_session",
-        JSON.stringify(payload)
-      );
-    } catch {}
-    router.push("/resultat?type=alpin");
-  }
-
-  function goNext() {
-    if (step >= total - 1) {
-      finish();
-      return;
-    }
-    setStep((s) => s + 1);
-  }
-
-  const selectedValue =
-    q.type === "single"
-      ? ((answers as any)[q.id] as string | undefined)
-      : undefined;
-
-  const showNextButton = q.type === "about";
+  if (!q) return null;
 
   return (
     <main className="min-h-screen bg-white px-6 flex flex-col">
       <div className="mx-auto max-w-5xl flex-1 w-full">
-        {/* Tittel / progresjon */}
+        {/* Tittel */}
         <div className="pt-12 text-center">
-          <div className="text-sm text-black/60">
-            {step + 1} / {total}
-          </div>
-
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-black">
+          <h1 className="text-4xl font-semibold tracking-tight text-black">
             {q.title}
           </h1>
-
-          {q.description ? (
-            <p className="mt-3 text-base text-black/70">{q.description}</p>
-          ) : (
-            <p className="mt-3 text-base text-black/70">&nbsp;</p>
-          )}
+          <p className="mt-3 text-base text-black/70">
+            {q.subtitle ?? "Velg det som passer best."}
+          </p>
         </div>
 
-        {/* Innhold */}
-        <div className="mt-20 flex justify-center">
-          <div className="w-full max-w-5xl">
-            {q.type === "single" ? (
-              <div className="flex justify-center gap-6 flex-wrap">
-                {q.options.map((opt) => {
-                  const isSelected = selectedValue === opt.value;
-
-                  return (
-                    <SelectionCard
-                      key={opt.value}
-                      label={opt.label}
-                      selected={isSelected}
-                      onClick={() => {
-                        const nextAnswers = {
-                          ...answers,
-                          [q.id]: opt.value,
-                        } as AlpineAnswers;
-
-                        setAnswers(nextAnswers);
-
-                        // ✅ Auto-advance
-                        const isLast = step >= total - 1;
-                        if (isLast) {
-                          setTimeout(() => finish(nextAnswers), 0);
-                        } else {
-                          setTimeout(() => setStep((s) => s + 1), 0);
-                        }
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mx-auto max-w-xl grid gap-4">
-                {q.fields.map((f) => {
-                  const key = f.key as string;
-                  const isText = key === "name";
-                  const min = (f as any).min as number | undefined;
-                  const max = (f as any).max as number | undefined;
-
-                  // ✅ Vis draft hvis vi har det, ellers vis lagret verdi
-                  const stored = (answers.about as any)[key];
-                  const value =
-                    aboutDraft[key] ??
-                    (stored == null ? "" : String(stored));
-
-                  return (
-                    <div key={key} className="grid gap-2">
-                      <label className="text-sm font-medium text-black">
-                        {f.label}
-                      </label>
-
-                      <input
-                        value={value}
-                        onChange={(e) => {
-                          // ✅ La brukeren skrive fritt uten clamping
-                          setAboutDraft((d) => ({ ...d, [key]: e.target.value }));
-                        }}
-                        onBlur={() => {
-                          // ✅ Clamp først når brukeren er ferdig med feltet
-                          const raw = (aboutDraft[key] ?? "").trim();
-
-                          if (isText) {
-                            const nextVal = raw ? raw : undefined;
-
-                            setAnswers((prev) => ({
-                              ...prev,
-                              about: { ...prev.about, [key]: nextVal },
-                            }));
-
-                            // synk draft til trimmet tekst (eller tomt)
-                            setAboutDraft((d) => ({
-                              ...d,
-                              [key]: nextVal ?? "",
-                            }));
-                            return;
-                          }
-
-                          if (raw === "") {
-                            // tomt -> undefined
-                            setAnswers((prev) => ({
-                              ...prev,
-                              about: { ...prev.about, [key]: undefined },
-                            }));
-                            setAboutDraft((d) => ({ ...d, [key]: "" }));
-                            return;
-                          }
-
-                          const n = Number(raw.replace(",", "."));
-                          const clamped = clampNum(n, min, max);
-
-                          setAnswers((prev) => ({
-                            ...prev,
-                            about: { ...prev.about, [key]: clamped },
-                          }));
-
-                          // ✅ Oppdater feltet til clamped verdi (uten “hopping” mens man skriver)
-                          setAboutDraft((d) => ({
-                            ...d,
-                            [key]: clamped == null ? "" : String(clamped),
-                          }));
-                        }}
-                        inputMode={isText ? "text" : "numeric"}
-                        className="rounded-2xl border border-black/20 px-5 py-4 text-black outline-none focus:border-black transition"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        {/* Kort */}
+        <div className="mt-20 flex justify-center gap-6 flex-wrap">
+          {q.options.map((opt) => (
+            <Card
+              key={opt.value}
+              label={opt.label}
+              description={opt.description}
+              onClick={() => choose(q.id, opt.value)}
+            />
+          ))}
         </div>
 
-        {/* Kontroller under */}
-        <div className="mt-14 flex justify-center gap-6">
+        {/* Tilbake */}
+        <div className="mt-14 flex justify-center">
           <button
-            onClick={goBack}
-            className="text-sm text-black/60 hover:text-black transition"
+            type="button"
+            onClick={back}
+            className="text-sm text-black/60 hover:text-black transition focus:outline-none focus:ring-2 focus:ring-black/30 focus:ring-offset-2 rounded"
           >
             Tilbake
           </button>
-
-          {showNextButton && (
-            <button
-              onClick={goNext}
-              className="rounded-full px-6 py-2 text-sm transition border border-black/20 text-black hover:border-black"
-            >
-              {step === total - 1 ? "Se resultater" : "Neste"}
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Til forside */}
       <div className="pb-10 flex justify-center">
         <button
+          type="button"
           onClick={() => router.push("/")}
-          className="rounded-full border border-black/20 px-6 py-2 text-sm text-black hover:border-black transition"
+          className="rounded-full border border-black/20 px-6 py-2 text-sm text-black hover:border-black transition focus:outline-none focus:ring-2 focus:ring-black/30 focus:ring-offset-2"
         >
           Til forside
         </button>
@@ -268,27 +133,33 @@ export default function AlpineSurvey() {
   );
 }
 
-function SelectionCard({
+function Card({
   label,
-  selected,
+  description,
   onClick,
 }: {
   label: string;
-  selected: boolean;
+  description?: string;
   onClick: () => void;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={[
-        "relative w-44 sm:w-52 aspect-[3/4] rounded-2xl",
-        "border transition",
-        selected ? "border-2 border-black" : "border-black/20 hover:border-black",
-        "flex items-start justify-center",
-      ].join(" ")}
+      className="relative w-44 sm:w-52 aspect-[3/4]
+                 rounded-2xl border border-black/20
+                 flex items-start justify-center
+                 hover:border-black transition focus:outline-none focus:ring-2 focus:ring-black/30 focus:ring-offset-2"
     >
-      <div className="flex items-start justify-center w-full h-full pt-16">
+      <div className="flex flex-col items-center w-full h-full pt-16 px-4 text-center">
         <span className="text-2xl font-medium text-black">{label}</span>
+
+        {/* Kun nivå-kortene får description, siden bare de har det i data */}
+        {description ? (
+          <span className="mt-3 text-sm text-black/60 leading-snug">
+            {description}
+          </span>
+        ) : null}
       </div>
     </button>
   );
